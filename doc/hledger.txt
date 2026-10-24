@@ -1,0 +1,192 @@
+*hledger.txt*  Editing hledger journals and CSV rules files
+
+==============================================================================
+CONTENTS                                                    *hledger-contents*
+
+  1. Introduction ........................................ |hledger-intro|
+  2. Filetypes ........................................... |hledger-filetypes|
+  3. Tree-sitter ......................................... |hledger-tree-sitter|
+  4. Commands ............................................ |hledger-commands|
+  5. Mappings ............................................ |hledger-mappings|
+  6. Lua API ............................................. |hledger-api|
+  7. Language server ..................................... |hledger-lsp|
+
+==============================================================================
+1. INTRODUCTION                                                *hledger-intro*
+
+hledger.nvim helps edit hledger (https://hledger.org) files: journals and CSV
+rules files. It needs no setup: install it and open a journal. It sets no
+keymaps of its own; map the |<Plug>| mappings it provides to keys you choose.
+
+Requires Neovim 0.11 or later. Run `:checkhealth hledger` to see what's
+working.
+
+==============================================================================
+2. FILETYPES                                               *hledger-filetypes*
+
+`hledger`         Journals: `*.journal`, `*.hledger` and `*.j`. Neovim maps
+                `.journal` to `ledger` on its own; this plugin maps it to
+                `hledger`.
+
+`hledger_rules`   CSV rules files: `*.csv.rules`, `*.tsv.rules`, `*.ssv.rules`,
+                and other `*.rules` files whose first lines look like hledger
+                rules (`fields`, `if`, `skip`, `account1` and so on). udev, ufw
+                and polkit rules keep Neovim's own detection.
+
+Both set 'commentstring' and 'comments' for `;` comments. Journals also get
+an 'indentexpr' that indents a new line after a transaction header or a
+posting, and an 'include' pattern for `include` directives, so |gf| and |[I|
+follow them.
+
+==============================================================================
+3. TREE-SITTER                                           *hledger-tree-sitter*
+
+Highlighting, folds, text objects and the editing commands use the parsers
+from tree-sitter-hledger (https://github.com/obsidian33/tree-sitter-hledger),
+named after the filetypes: `hledger` and `hledger_rules`. This plugin doesn't
+install them, but starts tree-sitter in journals and rules files when they're
+installed, as Neovim does for the parsers it bundles. To keep tree-sitter off,
+call |vim.treesitter.stop()| in `after/ftplugin/hledger.lua`.
+
+With nvim-treesitter's `main` branch (Neovim 0.12 or later), register the
+parsers in a `User TSUpdate` autocommand: >lua
+
+    vim.api.nvim_create_autocmd("User", {
+        pattern = "TSUpdate",
+        callback = function()
+            local parsers = require("nvim-treesitter.parsers")
+            for lang, dir in pairs({ hledger = "journal", hledger_rules = "rules" }) do
+                parsers[lang] = {
+                    install_info = {
+                        url = "https://github.com/obsidian33/tree-sitter-hledger",
+                        location = dir,
+                        queries = dir .. "/queries",
+                    },
+                }
+            end
+        end,
+    })
+<
+then `:TSInstall hledger hledger_rules`.
+
+Or build them with the tree-sitter CLI and copy the queries, on any Neovim
+version: >sh
+
+    git clone https://github.com/obsidian33/tree-sitter-hledger
+    cd tree-sitter-hledger
+    site=~/.local/share/nvim/site
+    tree-sitter build -o $site/parser/hledger.so journal
+    tree-sitter build -o $site/parser/hledger_rules.so rules
+    mkdir -p $site/queries
+    cp -r journal/queries $site/queries/hledger
+    cp -r rules/queries $site/queries/hledger_rules
+<
+                                                           *hledger-folding*
+For folds that work with or without the parsers, use |hledger.foldexpr()|: >lua
+
+    vim.wo.foldmethod = "expr"
+    vim.wo.foldexpr = "v:lua.require'hledger'.foldexpr()"
+<
+==============================================================================
+4. COMMANDS                                                 *hledger-commands*
+
+                                                                    *:Hledger*
+:Hledger secondary-date [{date}]
+        Set the secondary date of the transaction under the cursor to {date}
+        (`YYYY-MM-DD`), or to today. Replaces an existing secondary date.
+
+:Hledger status [{status}]
+        Set the status mark of the posting under the cursor, or of the
+        transaction when the cursor is on its first line. {status} is
+        `cleared` (`*`), `pending` (`!`) or `unmarked`. Without {status}, cycle
+        through unmarked, pending and cleared.
+
+==============================================================================
+5. MAPPINGS                                                 *hledger-mappings*
+
+No keys are mapped. Map these to keys of your choice, for example in
+`after/ftplugin/hledger.lua`: >lua
+
+    vim.keymap.set("n", "<leader>ld", "<Plug>(hledger-secondary-date)", { buffer = true })
+    vim.keymap.set("n", "<leader>ls", "<Plug>(hledger-cycle-status)", { buffer = true })
+<
+                                               *<Plug>(hledger-secondary-date)*
+<Plug>(hledger-secondary-date)
+        Normal mode: set the transaction's secondary date to today.
+
+                                                  *<Plug>(hledger-cycle-status)*
+<Plug>(hledger-cycle-status)
+        Normal mode: cycle the status mark, as `:Hledger status`.
+
+                                                  *<Plug>(hledger-align-amount)*
+<Plug>(hledger-align-amount)
+        Insert mode: move the cursor to the amount column, or insert a tab.
+        See |hledger.align_amount()|.
+
+==============================================================================
+6. LUA API                                                       *hledger-api*
+
+All functions work on the current buffer. >lua
+
+    local hledger = require("hledger")
+<
+                                                *hledger.set_secondary_date()*
+set_secondary_date({time})
+        Set the secondary date of the transaction under the cursor, using the
+        primary date's separator. {time} is an |os.time()| timestamp and
+        defaults to today.
+
+                                                        *hledger.set_status()*
+set_status({status})
+        Set the status mark of the posting under the cursor, or of the
+        transaction on its first line. {status} is `"*"`, `"!"` or `""`.
+
+                                                      *hledger.cycle_status()*
+cycle_status()
+        Move the status mark to the next one: unmarked, pending, cleared.
+
+                                                      *hledger.align_amount()*
+align_amount()
+        For an insert-mode Tab mapping. Asks the buffer's language servers for
+        the spaces that move the cursor to the amount column (an on-type
+        formatting request for a tab, which hledger-lsp answers). Returns them,
+        or `false` when no server offers any. With blink.cmp: >lua
+
+    keymap = {
+        ["<Tab>"] = {
+            "snippet_forward",
+            function()
+                local ok, hledger = pcall(require, "hledger")
+                return ok and hledger.align_amount()
+            end,
+            "fallback",
+        },
+    }
+<
+                                                          *hledger.foldexpr()*
+foldexpr({lnum})
+        A 'foldexpr': tree-sitter folds where tree-sitter is running, and
+        otherwise folds for `*` outline headings. {lnum} defaults to |v:lnum|.
+
+==============================================================================
+7. LANGUAGE SERVER                                               *hledger-lsp*
+
+This plugin doesn't configure a language server. hledger-lsp
+(https://github.com/juev/hledger-lsp) provides completion, diagnostics and
+formatting for journals and rules files; configure it with |vim.lsp.config()|
+and enable it with |vim.lsp.enable()|.
+
+With hledger-lsp, |hledger.align_amount()| handles Tab. hledger-lsp also asks
+to be sent a tab as an on-type formatting trigger, which would align again
+after every literal tab; remove it when the client starts: >lua
+
+    on_init = function(client)
+        local otf = client.server_capabilities.documentOnTypeFormattingProvider
+        if otf then
+            otf.moreTriggerCharacter = vim.tbl_filter(function(ch)
+                return ch ~= "\t"
+            end, otf.moreTriggerCharacter or {})
+        end
+    end,
+<
+ vim:tw=78:ts=8:noet:ft=help:norl:
