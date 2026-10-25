@@ -2,7 +2,7 @@
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
 vim.opt.runtimepath:prepend(root)
 vim.opt.runtimepath:prepend(root .. "/deps/mini.test")
-vim.opt.runtimepath:prepend(root .. "/deps") -- deps/parser/*.so
+vim.opt.runtimepath:prepend(root .. "/deps") -- deps/parser/*.so, deps/queries/
 
 -- The process running the tests (not the child Neovims they drive)
 if #vim.api.nvim_list_uis() == 0 then

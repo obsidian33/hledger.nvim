@@ -3,6 +3,8 @@ if vim.b.did_ftplugin then
 end
 vim.b.did_ftplugin = true
 
+local bufnr = vim.api.nvim_get_current_buf()
+
 vim.bo.commentstring = "; %s"
 vim.bo.comments = "b:;,b:#"
 vim.bo.include = [[^\s*include]]
@@ -13,4 +15,6 @@ if vim.treesitter.language.add("hledger") then
     vim.treesitter.start()
 end
 
-vim.b.undo_ftplugin = "setlocal commentstring< comments< include<\n call v:lua.vim.treesitter.stop()"
+require("hledger.folds").attach(bufnr)
+
+vim.b.undo_ftplugin = "setlocal commentstring< comments< include< foldexpr<\n call v:lua.vim.treesitter.stop()\n lua require('hledger.folds').undo(" .. bufnr .. ")"

@@ -53,6 +53,7 @@ T[":Hledger"]["secondary-date rejects invalid dates"] = function()
 end
 
 T[":Hledger"]["completes subcommands and statuses"] = function()
+    eq(child.fn.getcompletion("Hledger ", "cmdline"), { "fold-sections", "secondary-date", "status" })
     eq(child.fn.getcompletion("Hledger s", "cmdline"), { "secondary-date", "status" })
     eq(child.fn.getcompletion("Hledger status c", "cmdline"), { "cleared" })
 end

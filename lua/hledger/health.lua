@@ -10,6 +10,14 @@ function M.check()
         health.error("hledger.nvim needs Neovim 0.11 or later")
     end
 
+    health.start("Settings (vim.g.hledger)")
+    local config, err = require("hledger.config").get()
+    if err then
+        health.error(err, { "See :help g:hledger" })
+    else
+        health.ok(vim.g.hledger and vim.inspect(config, { newline = " ", indent = "" }) or "defaults")
+    end
+
     health.start("Filetype detection")
     for name, expected in pairs({ ["main.journal"] = "hledger", ["bank.csv.rules"] = "hledger_rules" }) do
         local ft = vim.filetype.match({ filename = name })

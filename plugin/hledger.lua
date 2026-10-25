@@ -13,6 +13,10 @@ vim.keymap.set("n", "<Plug>(hledger-cycle-status)", function()
     require("hledger").cycle_status()
 end, { desc = "hledger: cycle the status mark (unmarked, pending, cleared)" })
 
+vim.keymap.set("n", "<Plug>(hledger-fold-sections)", function()
+    require("hledger").fold_sections()
+end, { desc = "hledger: fold to the * sections" })
+
 vim.keymap.set("i", "<Plug>(hledger-align-amount)", function()
     return require("hledger").align_amount() or "\t"
 end, { expr = true, desc = "hledger: move to the amount column, or insert a tab" })
@@ -53,6 +57,11 @@ local subcommands = {
                 end
             end
             require("hledger").set_secondary_date(time)
+        end,
+    },
+    ["fold-sections"] = {
+        impl = function()
+            require("hledger").fold_sections()
         end,
     },
     status = {

@@ -6,10 +6,12 @@ CONTENTS                                                    *hledger-contents*
   1. Introduction ........................................ |hledger-intro|
   2. Filetypes ........................................... |hledger-filetypes|
   3. Tree-sitter ......................................... |hledger-tree-sitter|
-  4. Commands ............................................ |hledger-commands|
-  5. Mappings ............................................ |hledger-mappings|
-  6. Lua API ............................................. |hledger-api|
-  7. Language server ..................................... |hledger-lsp|
+  4. Folding ............................................. |hledger-folding|
+  5. Settings ............................................ |hledger-settings|
+  6. Commands ............................................ |hledger-commands|
+  7. Mappings ............................................ |hledger-mappings|
+  8. Lua API ............................................. |hledger-api|
+  9. Language server ..................................... |hledger-lsp|
 
 ==============================================================================
 1. INTRODUCTION                                                *hledger-intro*
@@ -81,19 +83,55 @@ version: >sh
     cp -r journal/queries $site/queries/hledger
     cp -r rules/queries $site/queries/hledger_rules
 <
-                                                           *hledger-folding*
-For folds that work with or without the parsers, use |hledger.foldexpr()|: >lua
+==============================================================================
+4. FOLDING                                                   *hledger-folding*
 
-    vim.wo.foldmethod = "expr"
-    vim.wo.foldexpr = "v:lua.require'hledger'.foldexpr()"
+Both filetypes set 'foldexpr' to |hledger.foldexpr()|, as Neovim's own Lua
+filetype plugin does: tree-sitter folds where the parser is running (`*`
+sections, transactions, directives, if blocks and tables), and otherwise folds
+for `*` headings. It takes effect when 'foldmethod' is "expr": >lua
+
+    vim.o.foldmethod = "expr"
+    vim.o.foldlevelstart = 99 -- start with folds open
+<
+To start with only the `*` sections folded, and everything in them open, set
+`fold_sections_on_open` (|g:hledger|). |:Hledger| `fold-sections` folds a
+window down to its sections at any time.
+
+For fold lines like `* Groceries [12 lines]`, set 'foldtext' to
+|hledger.foldtext()|, for example in `after/ftplugin/hledger.lua`: >lua
+
+    vim.wo[0][0].foldtext = "v:lua.require'hledger'.foldtext()"
 <
 ==============================================================================
-4. COMMANDS                                                 *hledger-commands*
+5. SETTINGS                                                 *hledger-settings*
+                                                                   *g:hledger*
+Optional settings go in the `vim.g.hledger` table, set before a journal or
+rules file opens. They're checked by `:checkhealth hledger`. >lua
+
+    ---@type hledger.Opts
+    vim.g.hledger = {
+        fold_sections_on_open = true,
+    }
+<
+fold_sections_on_open    boolean (default: `false`)
+        Start journals and rules files with only their `*` sections folded:
+        when a window first shows the buffer, close the sections and open
+        everything else, such as transactions and if blocks. Folds you open
+        stay open when you come back to the buffer in that window. Needs
+        'foldmethod' set to "expr".
+
+==============================================================================
+6. COMMANDS                                                 *hledger-commands*
 
                                                                     *:Hledger*
 :Hledger secondary-date [{date}]
         Set the secondary date of the transaction under the cursor to {date}
         (`YYYY-MM-DD`), or to today. Replaces an existing secondary date.
+
+:Hledger fold-sections
+        Fold the window down to its `*` sections: close every section and open
+        everything else. See |hledger.fold_sections()|.
 
 :Hledger status [{status}]
         Set the status mark of the posting under the cursor, or of the
@@ -102,7 +140,7 @@ For folds that work with or without the parsers, use |hledger.foldexpr()|: >lua
         through unmarked, pending and cleared.
 
 ==============================================================================
-5. MAPPINGS                                                 *hledger-mappings*
+7. MAPPINGS                                                 *hledger-mappings*
 
 No keys are mapped. Map these to keys of your choice, for example in
 `after/ftplugin/hledger.lua`: >lua
@@ -118,13 +156,18 @@ No keys are mapped. Map these to keys of your choice, for example in
 <Plug>(hledger-cycle-status)
         Normal mode: cycle the status mark, as `:Hledger status`.
 
+                                                 *<Plug>(hledger-fold-sections)*
+<Plug>(hledger-fold-sections)
+        Normal mode: fold the window down to its `*` sections, as
+        `:Hledger fold-sections`.
+
                                                   *<Plug>(hledger-align-amount)*
 <Plug>(hledger-align-amount)
         Insert mode: move the cursor to the amount column, or insert a tab.
         See |hledger.align_amount()|.
 
 ==============================================================================
-6. LUA API                                                       *hledger-api*
+8. LUA API                                                       *hledger-api*
 
 All functions work on the current buffer. >lua
 
@@ -167,9 +210,19 @@ align_amount()
 foldexpr({lnum})
         A 'foldexpr': tree-sitter folds where tree-sitter is running, and
         otherwise folds for `*` outline headings. {lnum} defaults to |v:lnum|.
+        The filetype plugins set it.
+
+                                                          *hledger.foldtext()*
+foldtext()
+        A 'foldtext': the fold's first line and its number of lines.
+
+                                                     *hledger.fold_sections()*
+fold_sections()
+        Fold the current window down to its `*` sections: close every section
+        and open everything else (transactions, if blocks, ...).
 
 ==============================================================================
-7. LANGUAGE SERVER                                               *hledger-lsp*
+9. LANGUAGE SERVER                                               *hledger-lsp*
 
 This plugin doesn't configure a language server. hledger-lsp
 (https://github.com/juev/hledger-lsp) provides completion, diagnostics and

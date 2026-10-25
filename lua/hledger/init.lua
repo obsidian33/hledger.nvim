@@ -175,19 +175,28 @@ end
 
 --- A 'foldexpr' for journals and rules files: tree-sitter folds (sections,
 --- transactions, if blocks, ...) where tree-sitter is running, and otherwise
---- folds for `*` outline headings.
+--- folds for `*` outline headings. The filetype plugins set it.
 ---@param lnum? integer defaults to |v:lnum|
 ---@return string
 function M.foldexpr(lnum)
-    lnum = lnum or vim.v.lnum
-    if vim.treesitter.highlighter.active[vim.api.nvim_get_current_buf()] then
-        return vim.treesitter.foldexpr(lnum)
+    return require("hledger.folds").foldexpr(lnum)
+end
+
+--- A 'foldtext': the fold's first line and its number of lines, such as
+--- `* Groceries [12 lines]`.
+---@return string
+function M.foldtext()
+    return require("hledger.folds").foldtext()
+end
+
+--- Folds the current window down to its `*` sections: closes every section
+--- and opens everything else (transactions, if blocks, ...).
+function M.fold_sections()
+    if vim.bo.filetype ~= "hledger" and vim.bo.filetype ~= "hledger_rules" then
+        return warn("only journals and rules files have sections")
     end
-    local stars = vim.fn.getline(lnum):match("^(%*+)%s")
-    if stars and #stars <= 6 then
-        return ">" .. #stars
-    end
-    return "="
+    local folds = require("hledger.folds")
+    folds.close_sections(vim.api.nvim_get_current_win(), vim.api.nvim_get_current_buf())
 end
 
 return M

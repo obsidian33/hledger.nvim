@@ -2,6 +2,7 @@
 # Fetches what the tests need into deps/:
 #   deps/mini.test        the test framework
 #   deps/parser/*.so      the tree-sitter-hledger parsers, built with the tree-sitter CLI
+#   deps/queries/*/       their queries (highlights, folds, ...)
 set -euo pipefail
 
 MINI_TEST_VERSION=v0.18.0
@@ -9,7 +10,7 @@ TREE_SITTER_HLEDGER_REVISION=55280d38ba74f12633f1e40803b074129d3b2947
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 deps="$root/deps"
-mkdir -p "$deps/parser"
+mkdir -p "$deps/parser" "$deps/queries"
 
 if [ ! -d "$deps/mini.test" ]; then
     git clone --quiet --depth 1 --branch "$MINI_TEST_VERSION" \
@@ -17,12 +18,16 @@ if [ ! -d "$deps/mini.test" ]; then
 fi
 
 stamp="$deps/parser/.revision"
-if [ ! -f "$stamp" ] || [ "$(cat "$stamp")" != "$TREE_SITTER_HLEDGER_REVISION" ]; then
+if [ ! -f "$stamp" ] || [ "$(cat "$stamp")" != "$TREE_SITTER_HLEDGER_REVISION" ] ||
+    [ ! -d "$deps/queries/hledger" ]; then
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT
     curl -fsSL "https://codeload.github.com/obsidian33/tree-sitter-hledger/tar.gz/$TREE_SITTER_HLEDGER_REVISION" |
         tar -xz -C "$tmp" --strip-components=1
     tree-sitter build -o "$deps/parser/hledger.so" "$tmp/journal"
     tree-sitter build -o "$deps/parser/hledger_rules.so" "$tmp/rules"
+    rm -rf "$deps/queries/hledger" "$deps/queries/hledger_rules"
+    cp -R "$tmp/journal/queries" "$deps/queries/hledger"
+    cp -R "$tmp/rules/queries" "$deps/queries/hledger_rules"
     echo "$TREE_SITTER_HLEDGER_REVISION" > "$stamp"
 fi
