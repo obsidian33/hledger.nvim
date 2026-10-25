@@ -5,7 +5,7 @@
 set -euo pipefail
 
 MINI_TEST_VERSION=v0.18.0
-TREE_SITTER_HLEDGER_REVISION=702ec4c7eb3c8ea0accaa7fa8e24ade886db8a52
+TREE_SITTER_HLEDGER_REVISION=55280d38ba74f12633f1e40803b074129d3b2947
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 deps="$root/deps"
